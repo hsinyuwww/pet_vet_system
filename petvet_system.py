@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import mysql.connector
 import sys
 
@@ -83,8 +85,15 @@ class PetVetSystem:
                 print(f"Phone: {profile['phone']}")
                 print(f"Address: {profile['address']}")
 
-                if input("\n1. Update Profile\n2. Back to Main Menu\nChoice: ") == "1":
-                    self.update_profile(owner_id)
+                while True:
+                    choice = input("\n1. Update Profile\n2. Back to Main Menu\nChoice: ")
+                    if choice == "1":
+                        self.update_profile(owner_id)
+                        break
+                    elif choice == "2":
+                        break
+                    else:
+                        print("Invalid choice. Please enter 1 or 2.")
         except mysql.connector.Error as err:
             print(f"Error: {err}")
 
@@ -214,37 +223,72 @@ class PetVetSystem:
             print(f"Error: {err}")
 
     def schedule_appointment(self, owner_id):
-        self.view_pets(owner_id)
-        pet_id = input("\nEnter Pet ID: ")
+        while True:
+            self.view_pets(owner_id)
+            pet_id = input("\nEnter Pet ID: ")
 
-        # Display available services
-        self.cursor.execute("SELECT * FROM Service")
-        services = self.cursor.fetchall()
-        print("\nAvailable Services:")
-        for service in services:
-            print(f"{service['service_id']}. {service['description']} - ${service['cost']}")
-        service_id = input("Enter Service ID: ")
+            # Validate pet ID
+            self.cursor.execute("SELECT COUNT(*) as count FROM Pet WHERE pet_id = %s AND owner_id = %s",
+                                (pet_id, owner_id))
+            if self.cursor.fetchone()['count'] == 0:
+                print("Error: Invalid Pet ID. Please select a valid pet from the list.")
+                continue
 
-        # Display veterinarians
-        self.cursor.execute("SELECT * FROM Veterinarian")
-        vets = self.cursor.fetchall()
-        print("\nVeterinarians:")
-        for vet in vets:
-            print(f"{vet['vet_id']}. {vet['name']} - {vet['specialization']}")
-        vet_id = input("Enter Vet ID: ")
+            # Display and validate service
+            while True:
+                self.cursor.execute("SELECT * FROM Service")
+                services = self.cursor.fetchall()
+                print("\nAvailable Services:")
+                for service in services:
+                    print(f"{service['service_id']}. {service['description']} - ${service['cost']}")
+                service_id = input("Enter Service ID: ")
 
-        date_str = input("Enter date (YYYY-MM-DD): ")
-        time_str = input("Enter time (HH:MM): ")
+                # Validate service ID
+                self.cursor.execute("SELECT COUNT(*) as count FROM Service WHERE service_id = %s",
+                                    (service_id,))
+                if self.cursor.fetchone()['count'] == 0:
+                    print("Error: Invalid Service ID. Please select a valid service from the list.")
+                    continue
+                break
 
-        try:
-            self.cursor.callproc('sp_schedule_appointment',
-                                 [owner_id, int(pet_id), int(vet_id),
-                                  int(service_id), date_str, time_str])
-            self.db.commit()
-            print("Appointment scheduled successfully!")
-        except mysql.connector.Error as err:
-            print(f"Error: {err}")
-            self.db.rollback()
+            # Display and validate veterinarian
+            while True:
+                self.cursor.execute("SELECT * FROM Veterinarian")
+                vets = self.cursor.fetchall()
+                print("\nVeterinarians:")
+                for vet in vets:
+                    print(f"{vet['vet_id']}. {vet['name']} - {vet['specialization']}")
+                vet_id = input("Enter Vet ID: ")
+
+                # Validate vet ID
+                self.cursor.execute("SELECT COUNT(*) as count FROM Veterinarian WHERE vet_id = %s",
+                                    (vet_id,))
+                if self.cursor.fetchone()['count'] == 0:
+                    print("Error: Invalid Veterinarian ID. Please select a valid veterinarian from the list.")
+                    continue
+                break
+
+            date_str = input("Enter date (YYYY-MM-DD): ")
+            time_str = input("Enter time (HH:MM): ")
+
+            try:
+                try:
+                    datetime.strptime(date_str, '%Y-%m-%d')
+                    datetime.strptime(time_str, '%H:%M')
+                except ValueError:
+                    print("Error: Invalid date or time format. Please use YYYY-MM-DD for date and HH:MM for time.")
+                    continue
+
+                self.cursor.callproc('sp_schedule_appointment',
+                                     [owner_id, int(pet_id), int(vet_id),
+                                      int(service_id), date_str, time_str])
+                self.db.commit()
+                print("Appointment scheduled successfully!")
+                break
+            except mysql.connector.Error as err:
+                print(f"Error: {err}")
+                self.db.rollback()
+                continue
 
     def cancel_appointment(self, owner_id):
         self.view_appointments(owner_id)
@@ -259,24 +303,42 @@ class PetVetSystem:
             self.db.rollback()
 
     def view_medical_records(self, owner_id):
-        self.view_pets(owner_id)
-        pet_id = input("\nEnter Pet ID to view medical records: ")
+        while True:
+            self.view_pets(owner_id)
+            pet_id = input("\nEnter Pet ID to view medical records: ")
 
-        try:
-            self.cursor.callproc('sp_get_pet_medical_records', [int(pet_id)])
-            for result in self.cursor.stored_results():
-                records = result.fetchall()
-                print("\n=== Medical Records ===")
-                for record in records:
-                    print(f"\nDate: {record['visit_date']}")
-                    print(f"Veterinarian: {record['veterinarian']}")
-                    print(f"Specialization: {record['specialization']}")
-                    print(f"Diagnosis: {record['diagnosis']}")
-                    print(f"Treatment: {record['treatment']}")
-                    print(f"Prescriptions: {record['prescriptions']}")
-                    print("-" * 30)
-        except mysql.connector.Error as err:
-            print(f"Error: {err}")
+            # Validate pet ID and ownership
+            self.cursor.execute("""
+                SELECT COUNT(*) as count 
+                FROM Pet 
+                WHERE pet_id = %s AND owner_id = %s
+            """, (pet_id, owner_id))
+
+            if self.cursor.fetchone()['count'] == 0:
+                print("Error: Invalid Pet ID. Please select a valid pet from the list.")
+                continue
+
+            try:
+                self.cursor.callproc('sp_get_pet_medical_records', [int(pet_id)])
+                for result in self.cursor.stored_results():
+                    records = result.fetchall()
+                    if not records:
+                        print("\nNo medical records found for this pet.")
+                        break
+
+                    print("\n=== Medical Records ===")
+                    for record in records:
+                        print(f"\nDate: {record['visit_date']}")
+                        print(f"Veterinarian: {record['veterinarian']}")
+                        print(f"Specialization: {record['specialization']}")
+                        print(f"Diagnosis: {record['diagnosis']}")
+                        print(f"Treatment: {record['treatment']}")
+                        print(f"Prescriptions: {record['prescriptions']}")
+                        print("-" * 30)
+                break
+            except mysql.connector.Error as err:
+                print(f"Error: {err}")
+                break
 
 
 if __name__ == "__main__":
