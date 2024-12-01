@@ -1,3 +1,12 @@
+# PetVet Portal System - User Flow
+## 1.Initial Setup
+```
+Enter MySQL username:_
+Enter MySQL password:_
+
+Database connection successful!
+```
+
 ## 2. Owner Portal Access
 ### Step 1: Login
 ```
@@ -34,11 +43,11 @@ Options:
 
 // If Update Profile selected:
 === Update Profile ===
--New name: _
--New email: _
--New phone:_
--New address: _
--Profile updated successfully!
+New name: _
+New email: _
+New phone:_
+New address: _
+Profile updated successfully!
 ```
 
 ### Step 4:  Pet Management
