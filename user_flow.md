@@ -1,5 +1,5 @@
 # PetVet Portal System - User Flow
-## 1.Initial Setup
+## 1. Initial Setup
 ```
 Enter MySQL username:_
 Enter MySQL password:_
