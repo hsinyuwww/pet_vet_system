@@ -42,6 +42,7 @@ Options:
 ```
 
 ### Step 4:  Pet Management
+```
 === Pet Management ===
 1. View All Pets
 2. Add New Pet
@@ -49,7 +50,7 @@ Options:
 4. Back to Main Menu
 Enter choice: _
 
-// View Pets Display
+// View Pets Display:
 === My Pets ===
 Pet ID: [id]
 Name: [name]
@@ -72,7 +73,7 @@ Are you sure? (yes/no): _
 
 ```
 
-Appointment Management
+### Step 5: Appointment Management
 ```
 === Appointments ===
 1. View All Appointments
@@ -104,7 +105,7 @@ Payment Status: [status]
 Enter Appointment ID to cancel: _
 ```
 
-View Medical Records
+### Step 6: View Medical Records
 ```
 === Medical Records ===
 Enter Pet ID to view medical records: _
