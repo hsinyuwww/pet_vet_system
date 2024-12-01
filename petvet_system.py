@@ -5,31 +5,82 @@ import sys
 
 class PetVetSystem:
     def __init__(self):
-        self.db = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="Wqy0989039028!",
-            database="petvet_system"
-        )
-        self.cursor = self.db.cursor(dictionary=True)
+        """Initialize the system and establish database connection"""
+        self.db = None
+        self.cursor = None
+        self.attempt_connection()
+
+    def attempt_connection(self):
+        """
+        Attempt to connect to the MySQL database with user credentials.
+        """
+        while True:
+            try:
+                username = input("Enter MySQL username: ")
+                password = input("Enter MySQL password: ")
+
+                # Attempt to establish connection
+                self.db = mysql.connector.connect(
+                    host="localhost",
+                    user=username,
+                    password=password,
+                    database="petvet_system",
+                    autocommit=True
+                )
+                self.cursor = self.db.cursor(dictionary=True)
+                print("\nDatabase connection successful!")
+                return
+
+            except mysql.connector.Error as err:
+                if err.errno == 1045:
+                    print("\nError: Invalid username or password.")
+                    print("Please try again.")
+                else:
+                    print(f"\nDatabase connection error: {err}")
+                    retry = input("Would you like to try again? (y/n): ")
+                    if retry.lower() != 'y':
+                        print("Exiting program...")
+                        sys.exit(1)
+
+    def disconnect(self):
+        """
+        Safely close the database connection and cursor.
+        """
+        if self.cursor:
+            self.cursor.close()
+        if self.db:
+            self.db.close()
+        print("Database connection closed.")
 
     def main_menu(self):
-        while True:
-            print("\n=== PetVet Portal System ===")
-            print("1. Owner Portal")
-            print("2. Veterinarian Portal")
-            print("3. Exit")
-            choice = input("Enter choice: ")
+        """Display and handle the main menu of the system"""
+        try:
+            while True:
+                print("\n=== PetVet Portal System ===")
+                print("1. Owner Portal")
+                print("2. Veterinarian Portal")
+                print("3. Exit")
+                choice = input("Enter choice: ")
 
-            if choice == "1":
-                self.owner_login()
-            elif choice == "3":
-                print("Goodbye!")
-                sys.exit(0)
-            else:
-                print("Invalid choice. Please try again.")
+                if choice == "1":
+                    self.owner_login()
+                elif choice == "3":
+                    print("Goodbye!")
+                    self.disconnect()
+                    sys.exit(0)
+                else:
+                    print("Invalid choice. Please try again.")
+        except KeyboardInterrupt:
+            print("\nProgram interrupted by user.")
+            self.disconnect()
+            sys.exit(1)
+        except Exception as e:
+            print(f"\nAn unexpected error occurred: {e}")
+            self.disconnect()
+            sys.exit(1)
 
     def owner_login(self):
+        """Handle owner login process with ID verification"""
         while True:
             print("\n=== Owner Portal Login ===")
             owner_id = input("Enter Owner ID (or 'back' to return): ")
@@ -50,6 +101,7 @@ class PetVetSystem:
                 print("Please enter a valid number.")
 
     def owner_menu(self, owner_id):
+        """Display and handle owner portal main menu options"""
         while True:
             print("\n=== Owner Portal ===")
             print("1. View My Profile")
@@ -75,6 +127,7 @@ class PetVetSystem:
                 print("Invalid choice. Please try again.")
 
     def view_profile(self, owner_id):
+        """Display owner profile information and handle profile updates"""
         try:
             self.cursor.callproc('sp_get_owner_profile', [owner_id])
             for result in self.cursor.stored_results():
@@ -98,6 +151,7 @@ class PetVetSystem:
             print(f"Error: {err}")
 
     def update_profile(self, owner_id):
+        """Handle owner profile information updates"""
         print("\n=== Update Profile ===")
         name = input("New name: ")
         email = input("New email: ")
@@ -114,6 +168,7 @@ class PetVetSystem:
             self.db.rollback()
 
     def manage_pets(self, owner_id):
+        """Display and handle pet management options"""
         while True:
             print("\n=== Pet Management ===")
             print("1. View All Pets")
@@ -135,6 +190,7 @@ class PetVetSystem:
                 print("Invalid choice. Please try again.")
 
     def view_pets(self, owner_id):
+        """Display all pets belonging to the owner"""
         try:
             self.cursor.callproc('sp_get_owner_pets', [owner_id])
             for result in self.cursor.stored_results():
@@ -153,6 +209,7 @@ class PetVetSystem:
             print(f"Error: {err}")
 
     def add_pet(self, owner_id):
+        """Handle adding a new pet to the system"""
         print("\n=== Add New Pet ===")
         name = input("Pet name: ")
         age = input("Age: ")
@@ -169,6 +226,7 @@ class PetVetSystem:
             self.db.rollback()
 
     def remove_pet(self, owner_id):
+        """Handle pet removal from the system"""
         self.view_pets(owner_id)
         pet_id = input("\nEnter Pet ID to remove: ")
 
@@ -182,6 +240,7 @@ class PetVetSystem:
                 self.db.rollback()
 
     def manage_appointments(self, owner_id):
+        """Display and handle appointment management options"""
         while True:
             print("\n=== Appointments ===")
             print("1. View All Appointments")
@@ -203,6 +262,7 @@ class PetVetSystem:
                 print("Invalid choice. Please try again.")
 
     def view_appointments(self, owner_id):
+        """Display all appointments for the owner"""
         try:
             self.cursor.callproc('sp_get_owner_appointments', [owner_id])
             for result in self.cursor.stored_results():
@@ -223,6 +283,7 @@ class PetVetSystem:
             print(f"Error: {err}")
 
     def schedule_appointment(self, owner_id):
+        """Handle scheduling new appointments with input validation"""
         while True:
             self.view_pets(owner_id)
             pet_id = input("\nEnter Pet ID: ")
@@ -291,6 +352,7 @@ class PetVetSystem:
                 continue
 
     def cancel_appointment(self, owner_id):
+        """Handle appointment cancellation"""
         self.view_appointments(owner_id)
         appt_id = input("\nEnter Appointment ID to cancel: ")
 
@@ -303,6 +365,7 @@ class PetVetSystem:
             self.db.rollback()
 
     def view_medical_records(self, owner_id):
+        """Display medical records for a selected pet"""
         while True:
             self.view_pets(owner_id)
             pet_id = input("\nEnter Pet ID to view medical records: ")
@@ -342,5 +405,9 @@ class PetVetSystem:
 
 
 if __name__ == "__main__":
-    system = PetVetSystem()
-    system.main_menu()
+    try:
+        system = PetVetSystem()
+        system.main_menu()
+    except Exception as e:
+        print(f"Fatal error: {e}")
+        sys.exit(1)
