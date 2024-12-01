@@ -227,6 +227,7 @@ class PetVetSystem:
 
     def remove_pet(self, owner_id):
         """Handle pet removal from the system"""
+        print("\n=== Remove Pet ===")
         self.view_pets(owner_id)
         pet_id = input("\nEnter Pet ID to remove: ")
 
