@@ -1,4 +1,3 @@
-DROP DATABASE IF EXISTS petvet_system;
 CREATE DATABASE petvet_system;
 USE petvet_system;
 
