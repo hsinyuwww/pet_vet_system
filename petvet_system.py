@@ -261,11 +261,12 @@ class PetVetSystem:
                                 else:
                                     print("No appointment in the following week.\n")
 
+                            
+
                         except mysql.connector.Error as e:
                             code, msg = e.args
                             print("Cannot execute procedure schedule view.", code, msg)
                             break
-                        break
                 case 4:
                     print("Back to main menu...\n")
                     break
