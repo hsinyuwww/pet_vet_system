@@ -129,4 +129,27 @@ Treatment: [treatment]
 Prescriptions: [prescriptions]
 ------------------------------
 ```
+## 3. Vet Portal Access
+### Step 1: Login
+=== Veterinarian Portal Login ===
+You chose vet protal. Please enter your ID as login credential!
+Enter your ID: _
+Login Success! Welcome, [Vet Name]
 
+### Step 2: Main Menu
+Please select one of the following:
+1. View My Schedule
+2. Search Patients
+3. Medical Records
+4. Update Profile
+5. Logout
+Your choice:
+
+### Step 3: View Vet Schedule
+Pulling up your schedule...
+Please select display method:
+1. Schedule for today.
+2. Schedule for the next 7 days.
+3. Schedule for specific date.
+4. Main Menu.
+Your choice:
