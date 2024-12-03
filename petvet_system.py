@@ -2,6 +2,8 @@ from datetime import datetime
 
 import mysql.connector
 import sys
+import pandas as pd
+from IPython import embed
 
 class PetVetSystem:
     def __init__(self):
@@ -64,6 +66,8 @@ class PetVetSystem:
 
                 if choice == "1":
                     self.owner_login()
+                if choice == "2":
+                    self.vet_login()
                 elif choice == "3":
                     print("Goodbye!")
                     self.disconnect()
@@ -99,6 +103,36 @@ class PetVetSystem:
                 print("Owner ID not found.")
             except ValueError:
                 print("Please enter a valid number.")
+    
+    def vet_login(self):
+        """Handle vet login process with ID verification"""
+        print("\n=== Veterinarian Portal Login ===")
+        print("You chose vet protal. Please enter your ID as login credential!")
+
+        vet_id_dict = {}
+        try:
+            query = "SELECT * FROM Veterinarian"
+            self.cursor.execute(query)
+            for row in self.cursor.fetchall():
+                vet_id_dict[row['vet_id']] = row['name']
+        except mysql.connector.Error as e:
+            code, msg = e.args
+            print("Error retrieving vet_ids from the database", code, msg)
+            return
+        while True:
+            try:
+                vet_id = int(input("Enter your ID: "))
+            except:
+                print("Please enter a valid number.")
+                continue
+            if vet_id not in vet_id_dict:
+                print("Login Failed. Please try again!")
+                continue
+            else:
+                name = vet_id_dict[vet_id]
+                print(f"Login Success! Welcome, {name}")
+                self.vet_menu(vet_id)
+                return
 
     def owner_menu(self, owner_id):
         """Display and handle owner portal main menu options"""
@@ -125,6 +159,331 @@ class PetVetSystem:
                 return
             else:
                 print("Invalid choice. Please try again.")
+    
+    def vet_menu(self, vet_id):
+        while True:
+            print("Please select one of the following: ")
+            print("1. View My Schedule")
+            print("2. Search Patients")
+            print("3. Medical Records")
+            print("4. Update Profile")
+            print("5. Logout")
+            try:
+                vet_selection = int(input("Your choice: "))
+            except ValueError:
+                print("Please enter a valid number.")
+                continue
+            match vet_selection:
+                case 1:
+                    self.view_vet_schedule(vet_id)
+                case 2:
+                    self.search_patient(vet_id)
+                case 3:
+                    self.manage_medical_records(vet_id)
+                case 4:
+                    self.manage_profile(vet_id)
+                case 5:
+                    print("Logging out...")
+                    return
+                case _:
+                    print("Please enter a valid option.")
+
+    def view_vet_schedule(self, vet_id):
+        while True:
+            print("Pulling up your schedule...")
+            print("Please select display method: ")
+            print("1. Schedule for today.")
+            print("2. Schedule for the next 7 days.")
+            print("3. Schedule for specific date.")
+            print("4. Main Menu.")
+            try:
+                schedule_selection = int(input("Your choice: "))
+            except ValueError:
+                print("Please enter a valid number.")
+                continue
+            match schedule_selection:
+                case 1:
+                    try:
+                        self.cursor.callproc('schedule_view', (vet_id, schedule_selection,"1900-01-01", ))
+                        for result in self.cursor.stored_results():
+                            rows = result.fetchall()
+                            if len(rows) > 0:
+                                columns = list(rows[0].keys())
+
+                                df = pd.DataFrame(columns=columns)
+                                for row in rows:
+                                    df.loc[len(df)] = row
+                                print(df)
+                            else:
+                                print("No appointment today.\n")
+                    except mysql.connector.Error as e:
+                        code, msg = e.args
+                        print("Cannot execute procedure schedule view.", code, msg)
+                        break
+                case 2:
+                    try:
+                        self.cursor.callproc('schedule_view', [vet_id, schedule_selection, "1900-01-01"])
+                        for result in self.cursor.stored_results():
+                            rows = result.fetchall()
+                            if len(rows) > 0:
+                                columns = list(rows[0].keys())
+                                df = pd.DataFrame(columns=columns)
+                                for row in rows:
+                                    df.loc[len(df)] = row
+                                print(df)
+                            else:
+                                print("No appointment in the following week.\n")
+                    except mysql.connector.Error as e:
+                        code, msg = e.args
+                        print("Cannot execute procedure schedule view.", code, msg)
+                        break
+                case 3:
+                    while True:
+                        date = input("Please enter the date in the format of yyyy-mm-dd: ")
+                        try:
+                            datetime.strptime(date, '%Y-%m-%d')
+                        except ValueError:
+                            print("Error: Invalid date or time format. Please use YYYY-MM-DD for date.")
+                            continue
+                        try:
+                            self.cursor.callproc('schedule_view', [vet_id, schedule_selection, date])
+                            columns = None
+                            
+                            for result in self.cursor.stored_results():
+                                rows = result.fetchall()
+                                if len(rows) > 0:
+                                    columns = list(rows[0].keys())
+
+                                    df = pd.DataFrame(columns=columns)
+                                    for row in rows:
+                                        df.loc[len(df)] = row
+                                    print(df)
+                                else:
+                                    print("No appointment in the following week.\n")
+
+                            
+
+                        except mysql.connector.Error as e:
+                            code, msg = e.args
+                            print("Cannot execute procedure schedule view.", code, msg)
+                            break
+                case 4:
+                    print("Back to main menu...\n")
+                    break
+
+                case _:
+                    print("Please enter a valid option!")
+    
+    def search_patient(self, vet_id):
+        while True:
+            print("Search patient by pet ID or pet name")
+            patient = input("Which patient are you interested in (Press Q to quit): ")
+
+            if patient.upper() == "Q":
+                print("Back to main menu...\n")
+                break
+            try:
+                patient = int(patient)
+                print("Searching by patient ID...")
+                self.cursor.callproc('patient_search', (patient, "None", vet_id, ))
+                for result in self.cursor.stored_results():
+                    rows = result.fetchall()
+                    if len(rows) > 0:
+                        columns = list(rows[0].keys())
+
+                        df = pd.DataFrame(columns=columns)
+                        for row in rows:
+                            df.loc[len(df)] = row
+                        print(df)
+                    else:
+                        print("No patient with this ID is treated by you. \n")
+            except:
+                print("Searching by patient name...")
+                self.cursor.callproc('patient_search', (0, patient, vet_id, ))
+                for result in self.cursor.stored_results():
+                    rows = result.fetchall()
+                    if len(rows) > 0:
+                        columns = list(rows[0].keys())
+
+                        df = pd.DataFrame(columns=columns)
+                        for row in rows:
+                            df.loc[len(df)] = row
+                        print(df)
+                    else:
+                        print("No patient with this name is treated by you. \n")
+    
+    def manage_medical_records(self, vet_id):
+        print("Pulling up medical records...")
+        while True:
+            print("1. Create new record for a patient.")
+            print("2. Search Medical Record.")
+            print("3. Update details of a medical record.")
+            print("4. Main Menu.\n")
+            try:
+                mr_selection = int(input("Your choice: "))
+            except ValueError:
+                print("Please enter a valid number.")
+                continue
+            match mr_selection:
+                case 1:
+                    while True:
+                        try:
+                            pet_id = int(input("Please enter the pet ID: "))
+                            break
+                        except:
+                            print("Please enter a valid number.")
+                            continue
+                    diagnosis = input("Please enter the diagnosis: ")
+                    treatment = input("Please enter the treatement: ")
+                    self.cursor.callproc("create_new_record", (pet_id, vet_id, diagnosis, treatment,))
+                case 2:
+                    while True:
+                        try:
+                            pet_id = int(input("Please enter the pet ID: "))
+                            break
+                        except ValueError:
+                            print("Please enter a valid number.")
+                            continue
+                    query = f"SELECT * FROM medical_record WHERE vet_id = {vet_id} and pet_id = {pet_id}"
+                    self.cursor.execute(query)
+                    rows = self.cursor.fetchall()
+                    if len(rows) > 0:
+                        columns = list(rows[0].keys())
+
+                        df = pd.DataFrame(columns=columns)
+                        for row in rows:
+                            df.loc[len(df)] = row
+                        print(df)
+                    else:
+                        print("No patient with this ID is treated by you. \n")
+                case 3:
+                    query = f"SELECT * FROM medical_record WHERE vet_id = {vet_id}"
+                    self.cursor.execute(query)
+                    rows = self.cursor.fetchall()
+                    pets = []
+                    if len(rows) > 0:
+                        columns = list(rows[0].keys())
+
+                        df = pd.DataFrame(columns=columns)
+                        for row in rows:
+                            df.loc[len(df)] = row
+                            pets.append(row["pet_id"])
+                        print(df)
+                    else:
+                        print("You don't have any medical records on file.")
+                        continue
+                    print("These are your patient IDs: ", set(pets))
+                    while True:
+                        try:
+                            pet_id = int(input("Which pet's medical record would you like to change? "))
+                            break
+                        except ValueError:
+                            print("Please enter a valid number.")
+                            continue
+                    if pet_id not in pets:
+                        print("This patient is not treated by you.")
+                        continue
+                    while True:
+                        query = f"SELECT * FROM medical_record WHERE vet_id = {vet_id} and pet_id = {pet_id}"
+                        self.cursor.execute(query)
+                        rows = self.cursor.fetchall()
+                        records = []
+                        columns = list(rows[0].keys())
+                        df = pd.DataFrame(columns=columns)
+                        for row in rows:
+                            df.loc[len(df)] = row
+                            records.append(row["record_id"])
+                        print(df)
+                        while True:
+                            try:
+                                record_to_change = int(input("Please enter the record ID you wish to change: "))
+                                break
+                            except ValueError:
+                                print("Please enter a valid number.")
+                                continue
+                        if record_to_change not in records:
+                            print("Please enter a valid record number! \n")
+                            continue
+                        while True:
+                            field_to_change = input("Please enter a field you wish to change (diagnosis, treatment, or both): ")
+                            if field_to_change == "diagnosis":
+                                new_diag = input("New diagnosis: ")
+                                new_treat = ""
+                            elif field_to_change == "treatment":
+                                new_treat = input("New treatment: ")
+                                new_diag = ""
+                            elif field_to_change == "both":
+                                new_diag = input("New diagnosis: ")
+                                new_treat = input("New treatment: ")
+                            else:
+                                print("Invalid input, please try again.")
+                                continue
+                            self.cursor.callproc("update_record", (record_to_change, new_diag, new_treat, ))
+                            query = f"SELECT * FROM medical_record WHERE pet_id = {pet_id} and vet_id = {vet_id}"
+                            self.cursor.execute(query)
+                            rows = self.cursor.fetchall()
+                            columns = list(rows[0].keys())
+                            df = pd.DataFrame(columns=columns)
+                            for row in rows:
+                                df.loc[len(df)] = row
+                            print(df)
+                            break
+                        break
+                case 4:
+                    break
+                case _:
+                    print("Please enter a valid option!")
+    
+    def manage_profile(self, vet_id):
+        print("Here is the current profile info.")
+        query = f"SELECT * FROM veterinarian WHERE vet_id = {vet_id}"
+        self.cursor.execute(query)
+        rows = self.cursor.fetchall()
+        columns = list(rows[0].keys())
+        df = pd.DataFrame(columns=columns)
+        for row in rows:
+            df.loc[len(df)] = row
+        print(df)
+        while True:
+            print("What field would you like to change?")
+            print("1. Name")
+            print("2. Phone")
+            print("3. E-mail")
+            print("4. Specialization")
+            print("5. Exit")
+            try:
+                mod_selection = int(input("Please select one of the options above: "))
+            except ValueError:
+                print("Please enter a valid number.")
+                continue
+            match mod_selection:
+                case 1:
+                    new_name = input("Please enter the new name: ")
+                    self.cursor.callproc("update_profile", (vet_id, new_name, "", "", ""))
+                case 2:
+                    new_phone = input("Please enter your new phone number: ")
+                    self.cursor.callproc("update_profile", (vet_id, "", new_phone, "", ""))
+                case 3:
+                    new_email = input("Please enter your new email address: ")
+                    self.cursor.callproc("update_profile", (vet_id, "", "", new_email, ""))
+                case 4:
+                    new_spec = input("Please enter your new specialization: ")
+                    self.cursor.callproc("update_profile", (vet_id, "", "", "", new_spec))
+                case 5:
+                    print("Exiting update interface...")
+                    break
+                case _:
+                    print("Please enter a valid option!")
+                    continue
+            query = f"SELECT * FROM veterinarian WHERE vet_id = {vet_id}"
+            self.cursor.execute(query)
+            rows = self.cursor.fetchall()
+            columns = list(rows[0].keys())
+            df = pd.DataFrame(columns=columns)
+            for row in rows:
+                df.loc[len(df)] = row
+            print(df)
+
 
     def view_profile(self, owner_id):
         """Display owner profile information and handle profile updates"""
